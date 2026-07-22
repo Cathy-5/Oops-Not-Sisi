@@ -14,7 +14,7 @@ const holes = [
 ];
 
 const lives = '❤️';
-const sisi_count = 2;
+const SISI_COUNT = 2;
 
 function getRandomSisiHoleIds(count: number) {
   const randomIds: number[] = [];
@@ -42,13 +42,15 @@ function Hole(props: { imageid: string; onClick: () => void }) {
 export default function App() {
   const [score, setScore] = useState(0);
   const [sisiHoleIds, setSisiHoleIds] = useState<number[]>(() =>
-    getRandomSisiHoleIds(sisi_count)
+    getRandomSisiHoleIds(SISI_COUNT)
   );
+  const emptyHoleIds = [0, 3, 7];
+
   const [livesCount, setLivesCount] = useState(3);
-  const [count, setCount] = useState(10); // count time
+  const [timeLeft, setTimeLeft] = useState(10); // count time
 
   // GameOver is true when livesCount or timer becomes 0
-  const isGameOver = livesCount === 0 || count === 0;
+  const isGameOver = livesCount === 0 || timeLeft === 0;
 
 
   function handleHit() {
@@ -61,14 +63,12 @@ export default function App() {
     setLivesCount(currentLive => Math.max(currentLive - 1, 0));
   }
 
-
-
   // Reset game
   function resetGame() {
     setScore(0);
     setLivesCount(3);
-    setCount(10);
-    setSisiHoleIds(getRandomSisiHoleIds(sisi_count));
+    setTimeLeft(10);
+    setSisiHoleIds(getRandomSisiHoleIds(SISI_COUNT));
   }
 
   // Handles timer decrease effect
@@ -77,7 +77,7 @@ export default function App() {
     if (isGameOver) return;
 
     const intervalId = setInterval(() => {
-      setCount(currentCount => Math.max(currentCount - 1, 0)); // currentCount should be > 0 
+      setTimeLeft(currentCount => Math.max(currentCount - 1, 0)); // currentCount should be > 0 
     }, 1000);
 
     // Recheck if game over changes
@@ -90,22 +90,27 @@ export default function App() {
     if (isGameOver) return;
 
     const intervalId = setInterval(() => {
-      setSisiHoleIds(getRandomSisiHoleIds(sisi_count)); // shuffle sisi every 3 seconds
+      setSisiHoleIds(getRandomSisiHoleIds(SISI_COUNT)); // shuffle sisi every 3 seconds
     }, 3000);
 
     // Recheck if game over changes
     return () => clearInterval(intervalId);
-  }, [isGameOver]); // if game is already over, don't start a timer
+  }, [isGameOver]);
 
 
   const listHoles = holes.map(hole => {
     const isSisi = sisiHoleIds.includes(hole.id);
+    const isEmpty = emptyHoleIds.includes(hole.id);
 
+    // Set if conditions: empty, sisi, mole
+    const imageid = isEmpty ? '' : isSisi ? '👧' : hole.imageid;
+    const onClick = isEmpty ? () => {} : isSisi ? handleLive : handleHit;
+ 
     return (
       <Hole
         key={hole.id}
-        imageid={isSisi ? '👧' : hole.imageid}
-        onClick={isSisi ? handleLive : handleHit}
+        imageid={imageid}
+        onClick={onClick}
       />
     );
   });
@@ -114,7 +119,7 @@ export default function App() {
     <main>
       <header>
         <h1>Score: {score}</h1>
-        <h2>Time: {count}</h2>
+        <h2>Time: {timeLeft}</h2>
         <h2>Lives: {lives.repeat(livesCount)}</h2>
         
         { isGameOver && <h2>Game Over</h2>}
