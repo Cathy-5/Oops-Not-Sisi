@@ -63,7 +63,8 @@ export default function App() {
     getInitialBoardPositions()
   );
   const { sisiHoleIds, moleHoleIds } = boardPositions;
-  const [cryingHoleId, setCryingHoleId] =  useState <number | null>();
+  const [cryingHoleId, setCryingHoleId] =  useState <number | null>(null);
+  const [ghostHoleId, setGhostHoleId] = useState <number | null> (null);
 
   const [livesCount, setLivesCount] = useState(3);
   const [timeLeft, setTimeLeft] = useState(30); // count time
@@ -73,15 +74,27 @@ export default function App() {
 
 
   function handleHit() {
-    if (isGameOver) return;
+    if (isGameOver) return ;
     setScore(currentScore => currentScore + 1);
   }
 
-  function handleLive(holdId: number) {
-    if (isGameOver) return;
+  function handleLife(holeId: number) {
+    if (isGameOver) return ;
 
-    setLivesCount(currentLive => Math.max(currentLive - 1, 0));
-    setCryingHoleId(holdId); // pass in the number for the crying holeId
+    // Handlelife only runs when sisi is clicked
+    setCryingHoleId(holeId); // pass in the number for the crying holeId
+
+    // CurrentLive is 1, nextLive is 0
+    setLivesCount(currentLive => {
+      const nextLive = Math.max(currentLive - 1, 0)
+
+      if (nextLive === 0) {
+        setGhostHoleId(holeId);
+      }
+
+      return nextLive;
+    });
+  
 
     // Clear crying emoji
     setTimeout(() => {
@@ -93,6 +106,8 @@ export default function App() {
   function resetGame() {
     setScore(0);
     setLivesCount(3);
+    setCryingHoleId(null);
+    setCryingHoleId(null);
     setTimeLeft(30);
     setBoardPositions(getInitialBoardPositions());
   }
@@ -172,10 +187,11 @@ export default function App() {
     const isSisi = sisiHoleIds.includes(hole.id);
     const isMole = moleHoleIds.includes(hole.id);
     const isCrying = cryingHoleId === hole.id;
+    const isGhost = ghostHoleId === hole.id;
 
     // Set if conditions: empty, sisi, mole
-    const imageid = isCrying ? '😭' : isSisi ? '👧' : isMole ? hole.imageid : '';
-    const onClick = isSisi ? () => handleLive(hole.id) : isMole ? handleHit : () => {};
+    const imageid = isGhost ? '👻' : isCrying ? '😭' : isSisi ? '👧' : isMole ? hole.imageid : '';
+    const onClick = isSisi ? () => handleLife(hole.id) : isMole ? handleHit : () => {};
  
     return (
       <Hole
@@ -192,8 +208,9 @@ export default function App() {
         <h1>Score: {score}</h1>
         <h2>Time: {timeLeft}</h2>
         <h2>Lives: {lives.repeat(livesCount)}</h2>
-        
-        { isGameOver && <h2>Game Over</h2>}
+
+
+        { isGameOver && <h2> Game Over</h2>}           
         { isGameOver && <button onClick={resetGame}>Play Again</button>}
 
       </header>
