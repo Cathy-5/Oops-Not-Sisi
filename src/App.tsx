@@ -61,10 +61,7 @@ export default function App() {
     setLivesCount(currentLive => Math.max(currentLive - 1, 0));
   }
 
-  // Set the shuffled randomIds
-  function shuffleSisi() {
-    setSisiHoleIds(getRandomSisiHoleIds(sisi_count));
-  }
+
 
   // Reset game
   function resetGame() {
@@ -74,6 +71,7 @@ export default function App() {
     setSisiHoleIds(getRandomSisiHoleIds(sisi_count));
   }
 
+  // Handles timer decrease effect
   useEffect(() => {
     // If game is over, do not start timer
     if (isGameOver) return;
@@ -84,8 +82,21 @@ export default function App() {
 
     // Recheck if game over changes
     return () => clearInterval(intervalId);
-  }, [isGameOver]);
+  }, [isGameOver]); // if game is already over, don't start a timer
   
+    // Handles sisi shuffle effect
+    useEffect(() => {
+    // If game is over, do not start timer
+    if (isGameOver) return;
+
+    const intervalId = setInterval(() => {
+      setSisiHoleIds(getRandomSisiHoleIds(sisi_count)); // shuffle sisi every 3 seconds
+    }, 3000);
+
+    // Recheck if game over changes
+    return () => clearInterval(intervalId);
+  }, [isGameOver]); // if game is already over, don't start a timer
+
 
   const listHoles = holes.map(hole => {
     const isSisi = sisiHoleIds.includes(hole.id);
@@ -108,7 +119,6 @@ export default function App() {
         
         { isGameOver && <h2>Game Over</h2>}
         { isGameOver && <button onClick={resetGame}>Play Again</button>}
-        {!isGameOver && <button onClick={shuffleSisi}>Shuffle Sisi</button>} 
 
       </header>
       <ul className='board'>{listHoles}</ul>
