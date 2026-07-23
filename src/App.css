@@ -283,12 +283,18 @@
 }
 
 .hammer-mode .box.mole,
-.hammer-mode .box.sisi {
+.hammer-mode .box.sisi,
+.hammer-mode .box.sisi-mole-combo,
+.hammer-mode .box.double-sisi,
+.hammer-mode .box.disguised-sisi {
   cursor: none;
 }
 
 .box.mole:hover,
-.box.sisi:hover {
+.box.sisi:hover,
+.box.sisi-mole-combo:hover,
+.box.double-sisi:hover,
+.box.disguised-sisi:hover {
   transform: translateY(-4px);
 }
 
@@ -314,6 +320,8 @@
 
 .box.mole::before,
 .box.sisi::before,
+.box.sisi-mole-combo::before,
+.box.double-sisi::before,
 .box.disguised-sisi::before,
 .box.revealed-sisi::before,
 .box.revealed-masked-sisi::before {
@@ -325,6 +333,18 @@
   width: 190px;
   height: 220px;
   transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.hit-area {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 9;
+  width: 220px;
+  height: 238px;
+  transform: translateX(-50%);
+  cursor: inherit;
 }
 
 .hole-image {
@@ -356,6 +376,8 @@
 
 .box.mole .character-layer,
 .box.sisi .character-layer,
+.box.sisi-mole-combo .character-layer,
+.box.double-sisi .character-layer,
 .box.disguised-sisi .character-layer,
 .box.revealed-sisi .character-layer,
 .box.revealed-masked-sisi .character-layer {
@@ -363,6 +385,8 @@
 }
 
 .box.sisi .character-layer,
+.box.sisi-mole-combo .character-layer,
+.box.double-sisi .character-layer,
 .box.disguised-sisi .character-layer,
 .box.revealed-sisi .character-layer,
 .box.revealed-masked-sisi .character-layer {
@@ -402,6 +426,16 @@
 .hit-feedback.hurt {
   font-size: 42px;
   filter: drop-shadow(0 4px 0 rgba(84, 12, 12, 0.22));
+}
+
+.hit-feedback.combo-left {
+  left: 34%;
+  bottom: 188px;
+}
+
+.hit-feedback.combo-right {
+  left: 68%;
+  bottom: 188px;
 }
 
 .hit-feedback.time {
@@ -447,24 +481,131 @@
   filter: drop-shadow(0 10px 8px rgba(69, 39, 12, 0.3));
 }
 
+.combo-sisi {
+  position: absolute;
+  z-index: 2;
+  width: 94%;
+  height: 94%;
+  opacity: 0;
+  transform: translate(-8px, 9px) rotate(-3deg);
+  animation: combo-sisi-slide-in 0.42s ease-out 0.58s forwards;
+}
+
+.combo-mole {
+  position: absolute;
+  z-index: 1;
+  width: 82%;
+  height: 82%;
+  opacity: 0;
+  transform: translate(62px, 12px) rotate(5deg);
+  animation: combo-mole-slide-in 0.32s ease-out forwards;
+}
+
+@keyframes combo-mole-slide-in {
+  0% {
+    opacity: 0;
+    transform: translate(92px, 12px) rotate(9deg) scale(0.92);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translate(26px, 12px) rotate(3deg) scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(34px, 12px) rotate(5deg) scale(1);
+  }
+}
+
+@keyframes combo-sisi-slide-in {
+  0% {
+    opacity: 0;
+    transform: translate(-96px, 9px) rotate(-9deg) scale(0.92);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translate(2px, 9px) rotate(-1deg) scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-8px, 9px) rotate(-3deg) scale(1);
+  }
+}
+
+.double-sisi-image {
+  position: absolute;
+  width: 86%;
+  height: 86%;
+  opacity: 0;
+}
+
+.double-sisi-image.left {
+  transform: translate(-32px, 10px) rotate(-7deg);
+  animation: double-sisi-slide-up-left 0.34s ease-out forwards;
+}
+
+.double-sisi-image.right {
+  transform: translate(32px, 10px) rotate(7deg);
+  animation: double-sisi-slide-up-right 0.42s ease-out 0.32s forwards;
+}
+
+@keyframes double-sisi-slide-up-left {
+  0% {
+    opacity: 0;
+    transform: translate(-32px, 58px) rotate(-7deg) scale(0.88);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-32px, 10px) rotate(-7deg) scale(1);
+  }
+}
+
+@keyframes double-sisi-slide-up-right {
+  0% {
+    opacity: 0;
+    transform: translate(32px, 58px) rotate(7deg) scale(0.88);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translate(32px, 6px) rotate(7deg) scale(1.12);
+  }
+
+  82% {
+    opacity: 1;
+    transform: translate(32px, 10px) rotate(7deg) scale(0.96);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(32px, 10px) rotate(7deg) scale(1.05);
+  }
+}
+
 .custom-protected-image {
   width: 112%;
   height: 112%;
   object-fit: cover;
-  object-position: center 18%;
+  object-position: center 24%;
   border-radius: 34px 34px 44px 44px;
   clip-path: polygon(
     0 0,
     100% 0,
-    100% 74%,
-    92% 82%,
-    78% 89%,
-    61% 93%,
-    50% 94%,
-    39% 93%,
-    22% 89%,
-    8% 82%,
-    0 74%
+    100% 77%,
+    96% 81%,
+    88% 85%,
+    76% 88%,
+    62% 90%,
+    50% 91%,
+    38% 90%,
+    24% 88%,
+    12% 85%,
+    4% 81%,
+    0 77%
   );
   filter: drop-shadow(0 10px 8px rgba(70, 35, 12, 0.32));
 }
@@ -554,6 +695,8 @@
 }
 
 .box.sisi .character-layer,
+.box.sisi-mole-combo .character-layer,
+.box.double-sisi .character-layer,
 .box.revealed-sisi .character-layer,
 .box.revealed-masked-sisi .character-layer {
   animation-name: sisi-come-out-of-hole;

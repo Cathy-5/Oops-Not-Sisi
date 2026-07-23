@@ -9,6 +9,21 @@ import hammerImage from './assets/hammer.png';
 import gameSounds from './assets/game-sounds.mp3';
 import sisiReactionSounds from './assets/sisi-reaction-sounds.mp3';
 import scoreResultSounds from './assets/score-result-sounds.mp3';
+import {
+  STARTING_LIVES,
+  STARTING_SISI_COUNT,
+  STARTING_MOLE_COUNT,
+  START_TIME,
+  STREAK_GOAL,
+  STREAK_TIME_BONUS,
+  getBetterScore,
+  getProtectedName,
+  getSisiStatus,
+  getTargetMoleCount,
+  getTargetSisiCount,
+  canShowComboHole,
+  canShowDoubleSisi,
+} from './gameLogic';
 import './App.css'
 
 const holes = [
@@ -24,17 +39,12 @@ const holes = [
 ];
 
 const lives = '❤️';
-const STARTING_SISI_COUNT = 1;
-const MOLE_COUNT = 3;
-const START_TIME = 30;
 const HIT_SOUND_COOLDOWN = 700;
 const HIDDEN_HOLE_ID = -1;
 const HIDDEN_SISI_ID = -100;
 const BEST_SCORE_KEY = 'oops-not-sisi-best-score';
 const PROTECTED_NAME_KEY = 'oops-not-sisi-protected-name';
 const PROTECTED_IMAGE_KEY = 'oops-not-sisi-protected-image';
-const STREAK_GOAL = 3;
-const STREAK_TIME_BONUS = 3;
 type MoleKind = 'innocent' | 'annoyed' | 'pirate';
 
 type MolePosition = {
@@ -45,7 +55,8 @@ type MolePosition = {
 type HitFeedback = {
   holeId: number;
   text: string;
-  type: 'score' | 'hurt' | 'time';
+  type: 'score' | 'hurt' | 'time' | 'combo';
+  rightText?: string;
 };
 
 type RevealedSisi = {
@@ -97,29 +108,6 @@ function getRandomHoleId(blockedIds: number[]) {
   return availableIds[randomIndex];
 }
 
-function getTargetSisiCount(timeLeft: number) {
-  if (timeLeft <= 15) return 2;
-
-  return 1;
-}
-
-function getSisiPhase(timeLeft: number) {
-  if (timeLeft <= 10) return 'Disaster';
-  if (timeLeft <= 15) return 'Mixed';
-  if (timeLeft <= 20) return 'Masked';
-
-  return 'Regular';
-}
-
-function getSisiStatus(timeLeft: number, sisiIndex: number) {
-  const phase = getSisiPhase(timeLeft);
-
-  if (phase === 'Regular') return 'sisi';
-  if (phase === 'Masked') return 'disguised-sisi';
-
-  return sisiIndex % 2 === 0 ? 'disguised-sisi' : 'sisi';
-}
-
 function getRandomGroundhogHoleId(molePositions: MolePosition[], blockedIds: number[]) {
   const availableMoleIds = molePositions
     .map(mole => mole.id)
@@ -136,7 +124,7 @@ function getRandomGroundhogHoleId(molePositions: MolePosition[], blockedIds: num
 
 function getInitialBoardPositions() {
   const sisiHoleIds = getRandomHoleIds(STARTING_SISI_COUNT);
-  const moleHoleIds = getRandomHoleIds(MOLE_COUNT, sisiHoleIds);
+  const moleHoleIds = getRandomHoleIds(STARTING_MOLE_COUNT, sisiHoleIds);
   const molePositions: MolePosition[] = moleHoleIds.map(id => ({
     id,
     kind: getRandomMoleKind(),
@@ -152,15 +140,11 @@ function getSavedBestScore() {
 }
 
 function getSavedProtectedName() {
-  return localStorage.getItem(PROTECTED_NAME_KEY) || 'Sisi';
+  return getProtectedName(localStorage.getItem(PROTECTED_NAME_KEY));
 }
 
 function getSavedProtectedImage() {
   return localStorage.getItem(PROTECTED_IMAGE_KEY) || sisiImage;
-}
-
-function getBetterScore(currentScore: number, previousBestScore: number) {
-  return Math.max(currentScore, previousBestScore);
 }
 
 function playSoundPart(soundFile: string, startTime: number, endTime: number) {
@@ -206,13 +190,36 @@ function Hole(props: { imageid: string; status: string; isHit: boolean; protecte
   return (
     <li className={`box ${props.status} ${props.isHit ? 'hit' : ''}`} onClick={props.onClick}>
       {props.feedback && (
-        <span className={`hit-feedback ${props.feedback.type}`}>
-          {props.feedback.text}
-        </span>
+        props.feedback.type === 'combo' ? (
+          <>
+            <span className='hit-feedback hurt combo-left'>
+              {props.feedback.text}
+            </span>
+            <span className='hit-feedback score combo-right'>
+              {props.feedback.rightText}
+            </span>
+          </>
+        ) : (
+          <span className={`hit-feedback ${props.feedback.type}`}>
+            {props.feedback.text}
+          </span>
+        )
       )}
       <div className='character-layer'>
         {props.status === 'mole' && props.moleKind && (
           <img className='mole-image' src={moleImages[props.moleKind]} alt={`${props.moleKind} mole`} />
+        )}
+        {props.status === 'sisi-mole-combo' && props.moleKind && (
+          <>
+            <img className={`${protectedImageClass} combo-sisi`} src={props.protectedImage} alt={`${props.protectedName} sharing a hole with a groundhog`} />
+            <img className='mole-image combo-mole' src={moleImages[props.moleKind]} alt={`${props.moleKind} mole`} />
+          </>
+        )}
+        {props.status === 'double-sisi' && (
+          <>
+            <img className={`${protectedImageClass} double-sisi-image left`} src={props.protectedImage} alt={`${props.protectedName} on the left`} />
+            <img className={`${protectedImageClass} double-sisi-image right`} src={props.protectedImage} alt={`${props.protectedName} on the right`} />
+          </>
         )}
         {props.status === 'disguised-sisi' && (
           <>
@@ -231,9 +238,12 @@ function Hole(props: { imageid: string; status: string; isHit: boolean; protecte
         )}
         {props.status === 'sisi' && <img className={protectedImageClass} src={props.protectedImage} alt={props.protectedName} />}
         {props.status === 'ghost' && <img className='ghost-image' src={ghostImage} alt='Ghost' />}
-        {props.status !== 'empty' && props.status !== 'mole' && props.status !== 'disguised-sisi' && props.status !== 'revealed-sisi' && props.status !== 'revealed-masked-sisi' && props.status !== 'sisi' && props.status !== 'ghost' && props.imageid}
+        {props.status !== 'empty' && props.status !== 'mole' && props.status !== 'sisi-mole-combo' && props.status !== 'double-sisi' && props.status !== 'disguised-sisi' && props.status !== 'revealed-sisi' && props.status !== 'revealed-masked-sisi' && props.status !== 'sisi' && props.status !== 'ghost' && props.imageid}
       </div>
       <img className='hole-image' src={holeImage} alt='' />
+      {props.status !== 'empty' && props.status !== 'ghost' && (
+        <span className='hit-area' aria-hidden='true' />
+      )}
     </li>
   );
 }
@@ -241,6 +251,7 @@ function Hole(props: { imageid: string; status: string; isHit: boolean; protecte
 export default function App() {
   const gameOverSoundPlayed = useRef(false);
   const canPlayHitSound = useRef(true);
+  const elapsedTimeRef = useRef(0);
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => getSavedBestScore());
   const [madeNewBestScore, setMadeNewBestScore] = useState(false);
@@ -255,8 +266,9 @@ export default function App() {
   const [revealedSisi, setRevealedSisi] = useState<RevealedSisi | null>(null);
   const [hitFeedback, setHitFeedback] = useState<HitFeedback | null>(null);
 
-  const [livesCount, setLivesCount] = useState(3);
+  const [livesCount, setLivesCount] = useState(STARTING_LIVES);
   const [timeLeft, setTimeLeft] = useState(START_TIME); // count time
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [hitStreak, setHitStreak] = useState(0);
   const [hasGameStarted, setHasGameStarted] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -265,9 +277,10 @@ export default function App() {
   // GameOver is true when livesCount or timer becomes 0
   const isGameOver = hasGameStarted && (livesCount === 0 || timeLeft === 0);
   const isGameActive = hasGameStarted && !isGameOver;
-  const targetSisiCount = getTargetSisiCount(timeLeft);
-  const sisiMoveSpeed = timeLeft <= 10 ? 1500 : timeLeft <= 20 ? 2200 : 3000;
-  const moleMoveSpeed = timeLeft <= 10 ? 3000 : timeLeft <= 20 ? 3800 : 4800;
+  const targetMoleCount = getTargetMoleCount(elapsedTime);
+  const targetSisiCount = getTargetSisiCount(elapsedTime, targetMoleCount);
+  const sisiMoveSpeed = elapsedTime >= 60 ? 1400 : elapsedTime >= 30 ? 2200 : 3200;
+  const moleMoveSpeed = elapsedTime >= 60 ? 2400 : elapsedTime >= 30 ? 3400 : 4800;
   const hasCustomProtectedImage = protectedImage !== sisiImage;
 
 
@@ -393,12 +406,12 @@ export default function App() {
     hideMoleThenRespawn(holeId);
   }
 
-  function handleLife(holeId: number) {
+  function handleLife(holeId: number, damage = 1, shouldShowBrokenHeart = true) {
     if (!hasGameStarted || isGameOver) return ;
 
     const clickedSisiIndex = sisiHoleIds.indexOf(holeId);
-    const wasWearingMask = getSisiStatus(timeLeft, clickedSisiIndex) === 'disguised-sisi';
-    const isFinalHit = livesCount <= 1;
+    const wasWearingMask = getSisiStatus(elapsedTime, clickedSisiIndex) === 'disguised-sisi';
+    const isFinalHit = livesCount <= damage;
 
     // Handlelife only runs when sisi is clicked
     // Avoid too many hit sounds playing over each other
@@ -414,10 +427,10 @@ export default function App() {
       });
 
       // If there was no mask, show the broken heart instead
-      if (!wasWearingMask) {
+      if (!wasWearingMask && shouldShowBrokenHeart) {
         showHitFeedback({
           holeId,
-          text: '💔',
+          text: damage > 1 ? '💔💔' : '💔',
           type: 'hurt',
         });
       }
@@ -425,9 +438,8 @@ export default function App() {
 
     setHitStreak(0);
 
-    // CurrentLive is 1, nextLive is 0
     setLivesCount(currentLive => {
-      const nextLive = Math.max(currentLive - 1, 0)
+      const nextLive = Math.max(currentLive - damage, 0)
 
       if (nextLive === 0) {
         setTimeout(() => {
@@ -447,16 +459,32 @@ export default function App() {
     }, 900);
   }
 
+  function handleComboHit(holeId: number, points: number) {
+    if (!hasGameStarted || isGameOver) return ;
+
+    // One hole gives reward and trouble at the same time
+    setScore(currentScore => currentScore + points);
+    showHitFeedback({
+      holeId,
+      text: '💔',
+      rightText: `+${points}`,
+      type: 'combo',
+    });
+    hideMoleThenRespawn(holeId);
+    handleLife(holeId, 1, false);
+  }
+
   function setFreshGame() {
     setScore(0);
     setMadeNewBestScore(false);
-    setLivesCount(3);
+    setLivesCount(STARTING_LIVES);
     setHitStreak(0);
     setGhostHoleId(null);
     setHitHoleId(null);
     setRevealedSisi(null);
     setHitFeedback(null);
     setTimeLeft(START_TIME);
+    setElapsedTime(0);
     setBoardPositions(getInitialBoardPositions());
   }
 
@@ -523,6 +551,11 @@ export default function App() {
     localStorage.removeItem(PROTECTED_IMAGE_KEY);
   }
 
+  // Keep interval functions reading the latest play time
+  useEffect(() => {
+    elapsedTimeRef.current = elapsedTime;
+  }, [elapsedTime]);
+
   // Handles timer decrease effect
   useEffect(() => {
     // If game is over, do not start timer
@@ -530,6 +563,7 @@ export default function App() {
 
     const intervalId = setInterval(() => {
       setTimeLeft(currentCount => Math.max(currentCount - 1, 0)); // currentCount should be > 0 
+      setElapsedTime(currentTime => currentTime + 1);
     }, 1000);
 
     // Recheck if game over changes
@@ -558,10 +592,17 @@ export default function App() {
         const nextSisiHoleIds = [...currentBoard.sisiHoleIds];
 
         while (nextSisiHoleIds.length < targetSisiCount) {
-          const blockedIds = nextSisiHoleIds.filter(sisiHoleId => sisiHoleId >= 0);
+          const blockedIds = [
+            ...nextSisiHoleIds.filter(sisiHoleId => sisiHoleId >= 0),
+            ...(elapsedTimeRef.current < 90 ? currentBoard.molePositions.map(mole => mole.id) : []),
+          ];
 
-          // New Sisi prefers replacing a current groundhog
-          nextSisiHoleIds.push(getRandomGroundhogHoleId(currentBoard.molePositions, blockedIds));
+          // Before combo mode, Sisi gets her own hole. After 90s, she can bundle with a groundhog.
+          nextSisiHoleIds.push(
+            elapsedTimeRef.current >= 90
+              ? getRandomGroundhogHoleId(currentBoard.molePositions, blockedIds)
+              : getRandomHoleId(blockedIds)
+          );
         }
 
         return {
@@ -578,11 +619,23 @@ export default function App() {
             ...currentBoard.sisiHoleIds
               .filter((_, sisiIndex) => sisiIndex !== index)
               .filter(sisiHoleId => sisiHoleId >= 0),
+            ...(elapsedTimeRef.current < 90 ? currentBoard.molePositions.map(mole => mole.id) : []),
           ];
           const nextSisiHoleIds = [...currentBoard.sisiHoleIds];
+          const otherSisiHoleIds = currentBoard.sisiHoleIds
+            .filter((_, sisiIndex) => sisiIndex !== index)
+            .filter(sisiHoleId => sisiHoleId >= 0);
 
-          // Sisi prefers replacing a groundhog, so she feels more sudden
-          nextSisiHoleIds[index] = getRandomGroundhogHoleId(currentBoard.molePositions, blockedIds);
+          // Very late game: sometimes two Sisis jump into the same hole
+          if (elapsedTimeRef.current >= 120 && otherSisiHoleIds.length > 0 && Math.random() < 0.16) {
+            const randomIndex = Math.floor(Math.random() * otherSisiHoleIds.length);
+            nextSisiHoleIds[index] = otherSisiHoleIds[randomIndex];
+          } else {
+            // Before combo mode, Sisi gets her own hole. After 90s, she can bundle with a groundhog.
+            nextSisiHoleIds[index] = elapsedTimeRef.current >= 90
+              ? getRandomGroundhogHoleId(currentBoard.molePositions, blockedIds)
+              : getRandomHoleId(blockedIds);
+          }
 
           return {
             ...currentBoard,
@@ -603,6 +656,40 @@ export default function App() {
   useEffect(() => {
     // If game is over, do not start mole shuffle
     if (!hasGameStarted || isGameOver) return;
+
+    const syncMoleCountId = setTimeout(() => {
+      setBoardPositions(currentBoard => {
+        if (currentBoard.molePositions.length === targetMoleCount) {
+          return currentBoard;
+        }
+
+        if (currentBoard.molePositions.length > targetMoleCount) {
+          return {
+            ...currentBoard,
+            molePositions: currentBoard.molePositions.slice(0, targetMoleCount),
+          };
+        }
+
+        const nextMolePositions = [...currentBoard.molePositions];
+
+        while (nextMolePositions.length < targetMoleCount) {
+          const blockedIds = [
+            ...currentBoard.sisiHoleIds,
+            ...nextMolePositions.map(mole => mole.id),
+          ];
+
+          nextMolePositions.push({
+            id: getRandomHoleId(blockedIds),
+            kind: getRandomMoleKind(),
+          });
+        }
+
+        return {
+          ...currentBoard,
+          molePositions: nextMolePositions,
+        };
+      });
+    }, 0);
 
     const intervalIds = molePositions.map((_, index) => {
       return setInterval(() => {
@@ -629,8 +716,11 @@ export default function App() {
     });
 
     // Recheck if game over changes
-    return () => intervalIds.forEach(intervalId => clearInterval(intervalId));
-  }, [hasGameStarted, isGameOver, molePositions, moleMoveSpeed]);
+    return () => {
+      clearTimeout(syncMoleCountId);
+      intervalIds.forEach(intervalId => clearInterval(intervalId));
+    };
+  }, [hasGameStarted, isGameOver, molePositions, moleMoveSpeed, targetMoleCount]);
 
   // Handles end game sound
   useEffect(() => {
@@ -658,8 +748,11 @@ export default function App() {
   const listHoles = holes.map(hole => {
     const isSisi = sisiHoleIds.includes(hole.id);
     const sisiIndex = sisiHoleIds.indexOf(hole.id);
+    const sisiCountInHole = sisiHoleIds.filter(sisiHoleId => sisiHoleId === hole.id).length;
     const mole = molePositions.find(molePosition => molePosition.id === hole.id);
     const isMole = mole !== undefined;
+    const isComboHole = canShowComboHole(elapsedTime) && isSisi && isMole && sisiCountInHole === 1;
+    const isDoubleSisi = canShowDoubleSisi(elapsedTime) && sisiCountInHole >= 2;
     const isGhost = ghostHoleId === hole.id;
     const isRevealedSisi = revealedSisi?.holeId === hole.id;
     const isHit = hitHoleId === hole.id;
@@ -667,8 +760,24 @@ export default function App() {
 
     // Set if conditions: empty, sisi, mole
     const imageid = isGhost ? '👻' : isRevealedSisi ? '👧' : isSisi ? '👧' : isMole ? hole.imageid : '';
-    const status = isGhost ? 'ghost' : isRevealedSisi ? revealedSisi.hadMask ? 'revealed-masked-sisi' : 'revealed-sisi' : isSisi ? getSisiStatus(timeLeft, sisiIndex) : isMole ? 'mole' : 'empty';
-    const onClick = isSisi ? () => handleLife(hole.id) : isMole ? () => handleHit(hole.id, molePoints[mole.kind]) : () => {};
+    const status = isGhost
+      ? 'ghost'
+      : isRevealedSisi
+        ? revealedSisi.hadMask ? 'revealed-masked-sisi' : 'revealed-sisi'
+        : isDoubleSisi
+          ? 'double-sisi'
+          : isComboHole
+            ? 'sisi-mole-combo'
+            : isSisi
+              ? getSisiStatus(elapsedTime, sisiIndex)
+              : isMole ? 'mole' : 'empty';
+    const onClick = isDoubleSisi
+      ? () => handleLife(hole.id, 2)
+      : isComboHole && mole
+        ? () => handleComboHit(hole.id, molePoints[mole.kind])
+        : isSisi
+          ? () => handleLife(hole.id)
+          : isMole ? () => handleHit(hole.id, molePoints[mole.kind]) : () => {};
  
     return (
       <Hole
