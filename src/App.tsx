@@ -48,6 +48,11 @@ type HitFeedback = {
   type: 'score' | 'hurt' | 'time';
 };
 
+type RevealedSisi = {
+  holeId: number;
+  hadMask: boolean;
+};
+
 const molePoints: Record<MoleKind, number> = {
   innocent: 1,
   annoyed: 2,
@@ -216,6 +221,9 @@ function Hole(props: { imageid: string; status: string; isHit: boolean; protecte
           </>
         )}
         {props.status === 'revealed-sisi' && (
+          <img className={protectedImageClass} src={props.protectedImage} alt={`${props.protectedName} revealed`} />
+        )}
+        {props.status === 'revealed-masked-sisi' && (
           <>
             <img className={protectedImageClass} src={props.protectedImage} alt={`${props.protectedName} revealed`} />
             <img className='mole-image flying-mask' src={innocentMoleImage} alt='' />
@@ -223,7 +231,7 @@ function Hole(props: { imageid: string; status: string; isHit: boolean; protecte
         )}
         {props.status === 'sisi' && <img className={protectedImageClass} src={props.protectedImage} alt={props.protectedName} />}
         {props.status === 'ghost' && <img className='ghost-image' src={ghostImage} alt='Ghost' />}
-        {props.status !== 'empty' && props.status !== 'mole' && props.status !== 'disguised-sisi' && props.status !== 'revealed-sisi' && props.status !== 'sisi' && props.status !== 'ghost' && props.imageid}
+        {props.status !== 'empty' && props.status !== 'mole' && props.status !== 'disguised-sisi' && props.status !== 'revealed-sisi' && props.status !== 'revealed-masked-sisi' && props.status !== 'sisi' && props.status !== 'ghost' && props.imageid}
       </div>
       <img className='hole-image' src={holeImage} alt='' />
     </li>
@@ -244,7 +252,7 @@ export default function App() {
   const { sisiHoleIds, molePositions } = boardPositions;
   const [ghostHoleId, setGhostHoleId] = useState<number | null>(null);
   const [hitHoleId, setHitHoleId] = useState<number | null>(null);
-  const [revealedSisiHoleId, setRevealedSisiHoleId] = useState<number | null>(null);
+  const [revealedSisi, setRevealedSisi] = useState<RevealedSisi | null>(null);
   const [hitFeedback, setHitFeedback] = useState<HitFeedback | null>(null);
 
   const [livesCount, setLivesCount] = useState(3);
@@ -388,17 +396,33 @@ export default function App() {
   function handleLife(holeId: number) {
     if (!hasGameStarted || isGameOver) return ;
 
+    const clickedSisiIndex = sisiHoleIds.indexOf(holeId);
+    const wasWearingMask = getSisiStatus(timeLeft, clickedSisiIndex) === 'disguised-sisi';
+    const isFinalHit = livesCount <= 1;
+
     // Handlelife only runs when sisi is clicked
     // Avoid too many hit sounds playing over each other
     playSoundWithCooldown(playSisiCryingSound);
 
     showHitEffect(holeId);
-    setRevealedSisiHoleId(holeId);
-    showHitFeedback({
-      holeId,
-      text: '💔',
-      type: 'hurt',
-    });
+
+    // Final hit is already dramatic enough with the ghost
+    if (!isFinalHit) {
+      setRevealedSisi({
+        holeId,
+        hadMask: wasWearingMask,
+      });
+
+      // If there was no mask, show the broken heart instead
+      if (!wasWearingMask) {
+        showHitFeedback({
+          holeId,
+          text: '💔',
+          type: 'hurt',
+        });
+      }
+    }
+
     setHitStreak(0);
 
     // CurrentLive is 1, nextLive is 0
@@ -407,9 +431,10 @@ export default function App() {
 
       if (nextLive === 0) {
         setTimeout(() => {
+          setRevealedSisi(null);
           setGhostHoleId(holeId);
           playSisiGhostSound();
-        }, 650);
+        }, 260);
       } else {
         hideSisiThenRespawn(holeId);
       }
@@ -418,7 +443,7 @@ export default function App() {
     });
 
     setTimeout(() => {
-      setRevealedSisiHoleId(null);
+      setRevealedSisi(null);
     }, 900);
   }
 
@@ -429,7 +454,7 @@ export default function App() {
     setHitStreak(0);
     setGhostHoleId(null);
     setHitHoleId(null);
-    setRevealedSisiHoleId(null);
+    setRevealedSisi(null);
     setHitFeedback(null);
     setTimeLeft(START_TIME);
     setBoardPositions(getInitialBoardPositions());
@@ -636,13 +661,13 @@ export default function App() {
     const mole = molePositions.find(molePosition => molePosition.id === hole.id);
     const isMole = mole !== undefined;
     const isGhost = ghostHoleId === hole.id;
-    const isRevealedSisi = revealedSisiHoleId === hole.id;
+    const isRevealedSisi = revealedSisi?.holeId === hole.id;
     const isHit = hitHoleId === hole.id;
     const feedback = hitFeedback?.holeId === hole.id ? hitFeedback : undefined;
 
     // Set if conditions: empty, sisi, mole
     const imageid = isGhost ? '👻' : isRevealedSisi ? '👧' : isSisi ? '👧' : isMole ? hole.imageid : '';
-    const status = isGhost ? 'ghost' : isRevealedSisi ? 'revealed-sisi' : isSisi ? getSisiStatus(timeLeft, sisiIndex) : isMole ? 'mole' : 'empty';
+    const status = isGhost ? 'ghost' : isRevealedSisi ? revealedSisi.hadMask ? 'revealed-masked-sisi' : 'revealed-sisi' : isSisi ? getSisiStatus(timeLeft, sisiIndex) : isMole ? 'mole' : 'empty';
     const onClick = isSisi ? () => handleLife(hole.id) : isMole ? () => handleHit(hole.id, molePoints[mole.kind]) : () => {};
  
     return (
