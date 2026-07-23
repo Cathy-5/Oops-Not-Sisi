@@ -25,7 +25,7 @@ const holes = [
 
 const lives = '❤️';
 const STARTING_SISI_COUNT = 1;
-const MOLE_COUNT = 2;
+const MOLE_COUNT = 3;
 const START_TIME = 30;
 const HIT_SOUND_COOLDOWN = 700;
 const HIDDEN_HOLE_ID = -1;
@@ -93,7 +93,6 @@ function getRandomHoleId(blockedIds: number[]) {
 }
 
 function getTargetSisiCount(timeLeft: number) {
-  if (timeLeft <= 10) return 3;
   if (timeLeft <= 15) return 2;
 
   return 1;
