@@ -9,6 +9,7 @@
   cursor: default;
   overflow: hidden;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .game.hammer-mode {
@@ -282,6 +283,8 @@
   cursor: default;
   user-select: none;
   transition: transform 0.18s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hammer-mode .box.mole,
@@ -347,6 +350,9 @@
   height: 238px;
   transform: translateX(-50%);
   cursor: inherit;
+  background: transparent;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hole-image {
@@ -360,6 +366,7 @@
   transform: translateX(-50%);
   pointer-events: none;
   filter: drop-shadow(0 4px 4px rgba(62, 34, 8, 0.28));
+  -webkit-tap-highlight-color: transparent;
 }
 
 .character-layer {
@@ -472,6 +479,7 @@
   display: block;
   pointer-events: none;
   filter: drop-shadow(0 10px 8px rgba(69, 39, 12, 0.32));
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sisi-image {
@@ -481,6 +489,7 @@
   display: block;
   pointer-events: none;
   filter: drop-shadow(0 10px 8px rgba(69, 39, 12, 0.3));
+  -webkit-tap-highlight-color: transparent;
 }
 
 .combo-sisi {
